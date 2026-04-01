@@ -1,0 +1,17 @@
+{
+  "name": "word-indian-poker",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w @wip/backend\" \"npm run dev -w @wip/frontend\"",
+    "build": "npm run build -w @wip/shared && npm run build -w @wip/backend && npm run build -w @wip/frontend",
+    "test": "npm run test -w @wip/shared -w @wip/backend",
+    "lint": "eslint packages/*/src/**/*.ts packages/*/src/**/*.tsx"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  }
+}
