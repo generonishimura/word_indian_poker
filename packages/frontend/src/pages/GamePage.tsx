@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents, GameState, Message } from '@wip/shared';
+import { TALK_THEMES } from '@wip/shared';
 import { ChatContainer } from '../components/Chat/ChatContainer.js';
 import { ChatInput } from '../components/Chat/ChatInput.js';
 import { PlayerList } from '../components/PlayerList/PlayerList.js';
@@ -37,19 +38,21 @@ export function GamePage({ socket, gameState }: Props) {
     socket.emit('send_message', { text });
   };
 
+  const handleSelectTheme = (themeId: string) => {
+    socket.emit('select_theme', { themeId }, (res) => {
+      if ('error' in res) alert(res.error);
+    });
+  };
+
   const handleStartGame = () => {
     socket.emit('start_game', (res) => {
-      if ('error' in res) {
-        alert(res.error);
-      }
+      if ('error' in res) alert(res.error);
     });
   };
 
   const handleRestart = () => {
     socket.emit('restart_game', (res) => {
-      if ('error' in res) {
-        alert(res.error);
-      }
+      if ('error' in res) alert(res.error);
     });
   };
 
@@ -58,15 +61,24 @@ export function GamePage({ socket, gameState }: Props) {
   const isEliminated = currentPlayer?.isEliminated ?? false;
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100">
+    <div className="h-screen flex flex-col bg-gray-50">
       {/* ヘッダー */}
-      <header className="bg-indigo-600 text-white px-4 py-3 flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-lg font-bold">ワードインディアンポーカー</h1>
-          <span className="text-indigo-200 text-xs">ルーム: {gameState.roomCode}</span>
+      <header className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 py-3 flex items-center justify-between shrink-0 shadow-md">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+            <span className="text-lg">🃏</span>
+          </div>
+          <div>
+            <h1 className="text-sm font-bold leading-tight">ワードインディアンポーカー</h1>
+            <div className="flex items-center gap-2">
+              <span className="text-white/60 text-xs">Room</span>
+              <span className="text-xs font-mono bg-white/20 rounded px-1.5 py-0.5">{gameState.roomCode}</span>
+            </div>
+          </div>
         </div>
-        <div className="text-sm">
-          {gameState.players.length}人参加中
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+          <span className="text-white/80 text-xs">{gameState.players.length}人</span>
         </div>
       </header>
 
@@ -77,28 +89,74 @@ export function GamePage({ socket, gameState }: Props) {
         phase={gameState.phase}
       />
 
-      {/* 待機中 */}
+      {/* 待機中: テーマ選択 */}
       {gameState.phase === 'waiting' && (
-        <div className="flex-1 flex flex-col items-center justify-center p-4 space-y-4">
-          <div className="bg-white rounded-xl p-6 shadow text-center max-w-sm w-full">
-            <p className="text-gray-600 mb-2">ルームコードを共有してください</p>
-            <p className="text-4xl font-mono font-bold text-indigo-600 tracking-widest">{gameState.roomCode}</p>
-            <p className="text-gray-400 text-sm mt-2">{gameState.players.length}人が参加中</p>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="max-w-lg mx-auto space-y-5">
+            {/* ルームコード表示 */}
+            <div className="bg-white rounded-2xl p-5 shadow-sm text-center">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">ルームコード</p>
+              <p className="text-4xl font-mono font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent tracking-[0.2em]">
+                {gameState.roomCode}
+              </p>
+              <p className="text-gray-400 text-xs mt-2">このコードを友達に共有しよう</p>
+            </div>
+
+            {/* テーマ選択 */}
+            {isHost && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                  トークテーマを選択
+                </p>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {TALK_THEMES.map(theme => (
+                    <button
+                      key={theme.id}
+                      onClick={() => handleSelectTheme(theme.id)}
+                      className={`text-left rounded-xl p-3.5 transition-all active:scale-[0.97] ${
+                        gameState.themeId === theme.id
+                          ? 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-md'
+                          : 'bg-white text-gray-700 shadow-sm hover:shadow-md'
+                      }`}
+                    >
+                      <p className={`font-bold text-sm ${gameState.themeId === theme.id ? 'text-white' : 'text-gray-800'}`}>
+                        {theme.label}
+                      </p>
+                      <p className={`text-xs mt-0.5 ${gameState.themeId === theme.id ? 'text-white/70' : 'text-gray-400'}`}>
+                        {theme.description}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!isHost && gameState.themeId && (
+              <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
+                <p className="text-xs text-gray-400 mb-1">選択されたテーマ</p>
+                <p className="font-bold text-violet-600">{gameState.themeLabel}</p>
+              </div>
+            )}
+
+            {/* ゲームスタートボタン */}
+            {isHost && gameState.themeId && gameState.players.length >= 2 && (
+              <button
+                onClick={handleStartGame}
+                className="w-full bg-gradient-to-r from-emerald-400 to-green-500 text-white rounded-xl py-4 text-lg font-bold hover:from-emerald-500 hover:to-green-600 transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
+              >
+                ゲームスタート！
+              </button>
+            )}
+            {isHost && !gameState.themeId && (
+              <p className="text-center text-gray-400 text-sm">テーマを選んでスタート！</p>
+            )}
+            {isHost && gameState.themeId && gameState.players.length < 2 && (
+              <p className="text-center text-gray-400 text-sm">2人以上でスタートできます</p>
+            )}
+            {!isHost && (
+              <p className="text-center text-gray-400 text-sm">ホストがテーマを選んでゲームを開始します...</p>
+            )}
           </div>
-          {isHost && gameState.players.length >= 2 && (
-            <button
-              onClick={handleStartGame}
-              className="bg-green-500 text-white rounded-lg px-8 py-3 text-lg font-medium hover:bg-green-600 transition shadow"
-            >
-              ゲームスタート！
-            </button>
-          )}
-          {isHost && gameState.players.length < 2 && (
-            <p className="text-gray-400 text-sm">2人以上でスタートできます</p>
-          )}
-          {!isHost && (
-            <p className="text-gray-400 text-sm">ホストがゲームを開始するのを待っています...</p>
-          )}
         </div>
       )}
 

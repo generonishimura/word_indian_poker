@@ -8,8 +8,8 @@ interface Props {
 export function ChatBubble({ message, isOwn }: Props) {
   if (message.type === 'system') {
     return (
-      <div className="flex justify-center">
-        <span className="bg-gray-200 text-gray-600 text-xs rounded-full px-3 py-1">
+      <div className="flex justify-center my-2">
+        <span className="bg-gray-100 text-gray-500 text-xs rounded-full px-4 py-1.5 font-medium">
           {message.text}
         </span>
       </div>
@@ -19,25 +19,25 @@ export function ChatBubble({ message, isOwn }: Props) {
   const hasTriggered = !!message.triggeredWord;
 
   return (
-    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-[75%] ${isOwn ? 'items-end' : 'items-start'}`}>
+    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-1`}>
+      <div className={`max-w-[75%] flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
         {!isOwn && (
-          <span className="text-xs text-gray-500 ml-1">{message.playerName}</span>
+          <span className="text-[11px] text-gray-400 font-medium ml-3 mb-0.5">{message.playerName}</span>
         )}
         <div
-          className={`rounded-2xl px-4 py-2 ${
+          className={`rounded-2xl px-4 py-2.5 shadow-sm ${
             hasTriggered
-              ? 'bg-red-100 border-2 border-red-400'
+              ? 'bg-red-50 border-2 border-red-300 animate-pulse'
               : isOwn
-                ? 'bg-green-400 text-white'
-                : 'bg-white border border-gray-200'
+                ? 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white'
+                : 'bg-white border border-gray-100'
           }`}
         >
-          <p className={`text-sm ${isOwn && !hasTriggered ? 'text-white' : 'text-gray-800'}`}>
+          <p className={`text-sm leading-relaxed ${isOwn && !hasTriggered ? 'text-white' : 'text-gray-800'}`}>
             {hasTriggered ? highlightWord(message.text, message.triggeredWord!) : message.text}
           </p>
         </div>
-        <span className="text-[10px] text-gray-400 ml-1">
+        <span className="text-[10px] text-gray-300 mx-3 mt-0.5">
           {new Date(message.timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
@@ -59,7 +59,7 @@ function highlightWord(text: string, word: string): React.ReactNode {
   return (
     <>
       {before}
-      <span className="bg-red-400 text-white font-bold rounded px-1">{matched}</span>
+      <span className="bg-red-500 text-white font-bold rounded px-1 py-0.5">{matched}</span>
       {after}
     </>
   );

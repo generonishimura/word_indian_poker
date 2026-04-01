@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { Player, GamePhase, GameState, PlayerView, Message, ChatMessage, WordMatch } from '@wip/shared';
 import { MIN_PLAYERS, MAX_PLAYERS, ROOM_CODE_LENGTH } from '@wip/shared';
 import { detectWord } from '@wip/shared';
+import { getThemeById } from '@wip/shared';
 import { assignWords } from './WordAssigner.js';
 
 export class GameRoom {
@@ -10,6 +11,7 @@ export class GameRoom {
   players: Player[] = [];
   messages: Message[] = [];
   winnerId?: string;
+  themeId?: string;
   private messageCounter = 0;
 
   constructor(roomCode?: string) {
@@ -61,6 +63,18 @@ export class GameRoom {
     }
   }
 
+  selectTheme(themeId: string): { ok: true } | { ok: false; error: string } {
+    if (this.phase !== 'waiting') {
+      return { ok: false, error: 'ゲームはすでに開始されています' };
+    }
+    const theme = getThemeById(themeId);
+    if (!theme) {
+      return { ok: false, error: 'テーマが見つかりません' };
+    }
+    this.themeId = themeId;
+    return { ok: true };
+  }
+
   startGame(): { ok: true } | { ok: false; error: string } {
     if (this.players.length < MIN_PLAYERS) {
       return { ok: false, error: `最低${MIN_PLAYERS}人必要です` };
@@ -68,8 +82,11 @@ export class GameRoom {
     if (this.phase !== 'waiting') {
       return { ok: false, error: 'ゲームはすでに開始されています' };
     }
+    if (!this.themeId) {
+      return { ok: false, error: 'テーマを選択してください' };
+    }
 
-    const words = assignWords(this.players.length);
+    const words = assignWords(this.players.length, this.themeId);
     this.players.forEach((p, i) => {
       p.secretWord = words[i];
       p.isEliminated = false;
@@ -80,7 +97,8 @@ export class GameRoom {
     this.messages = [];
     this.winnerId = undefined;
 
-    this.addSystemMessage('ゲームスタート！チャットで相手にワードを言わせよう！');
+    const theme = getThemeById(this.themeId);
+    this.addSystemMessage(`テーマ「${theme!.label}」でゲームスタート！${theme!.description}`);
     return { ok: true };
   }
 
@@ -117,31 +135,19 @@ export class GameRoom {
     const matchedPlayer = this.players.find(p => p.id === match.matchedPlayerId);
     if (!matchedPlayer) return;
 
-    if (match.isSelfMatch) {
-      // 自爆: 自分が脱落
-      matchedPlayer.isEliminated = true;
-      matchedPlayer.eliminationReason = 'said_own_word';
-      this.addSystemMessage(`${matchedPlayer.name} が自分のワード「${match.matchedWord}」を言ってしまった！脱落！`);
-    } else {
-      // 他者のワードを言わせた: 言った側が脱落、言わせた側が勝利
-      matchedPlayer.isEliminated = true;
-      matchedPlayer.eliminationReason = 'tricked';
-      const sender = this.players.find(p => p.id === match.senderId);
-      this.addSystemMessage(`${matchedPlayer.name} が「${match.matchedWord}」を言ってしまった！${sender?.name ?? '???'} の勝ち！`);
-      this.winnerId = match.senderId;
-      this.phase = 'finished';
-    }
+    // 自爆: 自分のワードを言ってしまった
+    matchedPlayer.isEliminated = true;
+    matchedPlayer.eliminationReason = 'said_own_word';
+    this.addSystemMessage(`${matchedPlayer.name} が自分のワード「${match.matchedWord}」を言ってしまった！脱落！`);
 
-    // 自爆の場合、残りプレイヤーが1人なら終了
-    if (match.isSelfMatch) {
-      const alivePlayers = this.players.filter(p => !p.isEliminated);
-      if (alivePlayers.length <= 1) {
-        if (alivePlayers.length === 1) {
-          this.winnerId = alivePlayers[0].id;
-          this.addSystemMessage(`${alivePlayers[0].name} の勝ち！`);
-        }
-        this.phase = 'finished';
+    // 残りプレイヤーが1人なら勝ち
+    const alivePlayers = this.players.filter(p => !p.isEliminated);
+    if (alivePlayers.length <= 1) {
+      if (alivePlayers.length === 1) {
+        this.winnerId = alivePlayers[0].id;
+        this.addSystemMessage(`${alivePlayers[0].name} の勝ち！`);
       }
+      this.phase = 'finished';
     }
   }
 
@@ -152,6 +158,7 @@ export class GameRoom {
     this.phase = 'waiting';
     this.messages = [];
     this.winnerId = undefined;
+    this.themeId = undefined;
     this.players.forEach(p => {
       p.secretWord = '';
       p.isEliminated = false;
@@ -170,6 +177,8 @@ export class GameRoom {
       isHost: p.isHost,
     }));
 
+    const theme = this.themeId ? getThemeById(this.themeId) : undefined;
+
     return {
       roomCode: this.roomCode,
       phase: this.phase,
@@ -177,6 +186,8 @@ export class GameRoom {
       messages: this.messages,
       currentPlayerId: playerId,
       winnerId: this.winnerId,
+      themeId: this.themeId,
+      themeLabel: theme?.label,
     };
   }
 

@@ -1,6 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GameRoom } from './GameRoom.js';
 
+function setupPlayingRoom(): GameRoom {
+  const room = new GameRoom('TEST');
+  room.addPlayer('p1', 'Alice');
+  room.addPlayer('p2', 'Bob');
+  room.selectTheme('food');
+  room.startGame();
+  return room;
+}
+
 describe('GameRoom', () => {
   let room: GameRoom;
 
@@ -42,11 +51,8 @@ describe('GameRoom', () => {
     });
 
     it('ゲーム中は追加できない', () => {
-      room.addPlayer('p1', 'Alice');
-      room.addPlayer('p2', 'Bob');
-      room.startGame();
-
-      const result = room.addPlayer('p3', 'Charlie');
+      const playingRoom = setupPlayingRoom();
+      const result = playingRoom.addPlayer('p3', 'Charlie');
 
       expect(result).toEqual({ ok: false, error: 'ゲームはすでに開始されています' });
     });
@@ -73,10 +79,26 @@ describe('GameRoom', () => {
     });
   });
 
+  describe('selectTheme', () => {
+    it('テーマを選択できる', () => {
+      const result = room.selectTheme('food');
+
+      expect(result).toEqual({ ok: true });
+      expect(room.themeId).toBe('food');
+    });
+
+    it('存在しないテーマはエラー', () => {
+      const result = room.selectTheme('nonexistent');
+
+      expect(result).toEqual({ ok: false, error: 'テーマが見つかりません' });
+    });
+  });
+
   describe('startGame', () => {
-    it('2人以上でゲームを開始できる', () => {
+    it('テーマ選択後、2人以上でゲームを開始できる', () => {
       room.addPlayer('p1', 'Alice');
       room.addPlayer('p2', 'Bob');
+      room.selectTheme('food');
 
       const result = room.startGame();
 
@@ -86,8 +108,18 @@ describe('GameRoom', () => {
       expect(room.players[1].secretWord).not.toBe('');
     });
 
+    it('テーマ未選択ではゲームを開始できない', () => {
+      room.addPlayer('p1', 'Alice');
+      room.addPlayer('p2', 'Bob');
+
+      const result = room.startGame();
+
+      expect(result).toEqual({ ok: false, error: 'テーマを選択してください' });
+    });
+
     it('1人ではゲームを開始できない', () => {
       room.addPlayer('p1', 'Alice');
+      room.selectTheme('food');
 
       const result = room.startGame();
 
@@ -98,6 +130,7 @@ describe('GameRoom', () => {
       room.addPlayer('p1', 'Alice');
       room.addPlayer('p2', 'Bob');
       room.addPlayer('p3', 'Charlie');
+      room.selectTheme('food');
       room.startGame();
 
       const words = room.players.map(p => p.secretWord);
@@ -109,9 +142,7 @@ describe('GameRoom', () => {
 
   describe('handleMessage', () => {
     beforeEach(() => {
-      room.addPlayer('p1', 'Alice');
-      room.addPlayer('p2', 'Bob');
-      room.startGame();
+      room = setupPlayingRoom();
     });
 
     it('通常のメッセージはマッチなしで処理される', () => {
@@ -138,17 +169,24 @@ describe('GameRoom', () => {
       expect(room.players[0].eliminationReason).toBe('said_own_word');
     });
 
-    it('相手のワードを言わせると勝ち', () => {
+    it('他人のワードを言っても何も起きない', () => {
       const opponentWord = room.players[0].secretWord;
 
       const result = room.handleMessage('p2', `今日は${opponentWord}を見た`);
 
       expect('error' in result).toBe(false);
       if (!('error' in result)) {
-        expect(result.match).not.toBeNull();
-        expect(result.match!.isSelfMatch).toBe(false);
-        expect(result.match!.matchedPlayerId).toBe('p1');
+        expect(result.match).toBeNull();
       }
+      expect(room.players[0].isEliminated).toBe(false);
+      expect(room.phase).toBe('playing');
+    });
+
+    it('自爆で残り1人になったらその人が勝ち', () => {
+      const myWord = room.players[0].secretWord;
+
+      room.handleMessage('p1', `今日は${myWord}を見た`);
+
       expect(room.players[0].isEliminated).toBe(true);
       expect(room.winnerId).toBe('p2');
       expect(room.phase).toBe('finished');
@@ -165,11 +203,8 @@ describe('GameRoom', () => {
 
   describe('getStateForPlayer', () => {
     it('自分のワードはnullになる', () => {
-      room.addPlayer('p1', 'Alice');
-      room.addPlayer('p2', 'Bob');
-      room.startGame();
-
-      const state = room.getStateForPlayer('p1');
+      const playingRoom = setupPlayingRoom();
+      const state = playingRoom.getStateForPlayer('p1');
 
       const me = state.players.find(p => p.id === 'p1');
       const other = state.players.find(p => p.id === 'p2');
@@ -178,29 +213,33 @@ describe('GameRoom', () => {
       expect(other!.secretWord).not.toBeNull();
       expect(other!.secretWord).not.toBe('');
     });
+
+    it('テーマ情報が含まれる', () => {
+      const playingRoom = setupPlayingRoom();
+      const state = playingRoom.getStateForPlayer('p1');
+
+      expect(state.themeId).toBe('food');
+      expect(state.themeLabel).toBe('グルメトーク');
+    });
   });
 
   describe('restart', () => {
     it('終了後にリスタートできる', () => {
-      room.addPlayer('p1', 'Alice');
-      room.addPlayer('p2', 'Bob');
-      room.startGame();
-      // 強制的に終了
-      room.phase = 'finished';
+      const playingRoom = setupPlayingRoom();
+      playingRoom.phase = 'finished';
 
-      const result = room.restart();
+      const result = playingRoom.restart();
 
       expect(result).toEqual({ ok: true });
-      expect(room.phase).toBe('waiting');
-      expect(room.players[0].secretWord).toBe('');
+      expect(playingRoom.phase).toBe('waiting');
+      expect(playingRoom.players[0].secretWord).toBe('');
+      expect(playingRoom.themeId).toBeUndefined();
     });
 
     it('ゲーム中はリスタートできない', () => {
-      room.addPlayer('p1', 'Alice');
-      room.addPlayer('p2', 'Bob');
-      room.startGame();
+      const playingRoom = setupPlayingRoom();
 
-      const result = room.restart();
+      const result = playingRoom.restart();
 
       expect(result).toEqual({ ok: false, error: 'ゲームが終了していません' });
     });

@@ -1,6 +1,6 @@
 export type GamePhase = 'waiting' | 'playing' | 'finished';
 
-export type EliminationReason = 'said_own_word' | 'tricked';
+export type EliminationReason = 'said_own_word';
 
 export interface Player {
   id: string;
@@ -44,6 +44,8 @@ export interface GameState {
   messages: Message[];
   currentPlayerId: string;
   winnerId?: string;
+  themeId?: string;
+  themeLabel?: string;
 }
 
 export interface WordMatch {
@@ -57,6 +59,7 @@ export interface WordMatch {
 export interface ClientToServerEvents {
   create_room: (data: { playerName: string }, callback: (res: { roomCode: string } | { error: string }) => void) => void;
   join_room: (data: { roomCode: string; playerName: string }, callback: (res: { success: true } | { error: string }) => void) => void;
+  select_theme: (data: { themeId: string }, callback: (res: { success: true } | { error: string }) => void) => void;
   start_game: (callback: (res: { success: true } | { error: string }) => void) => void;
   send_message: (data: { text: string }) => void;
   restart_game: (callback: (res: { success: true } | { error: string }) => void) => void;

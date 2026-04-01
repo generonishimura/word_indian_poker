@@ -20,7 +20,7 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 if (process.env.NODE_ENV === 'production') {
   const frontendDist = join(__dirname, '../../frontend/dist');
   app.use(express.static(frontendDist));
-  app.get('*', (_req, res) => {
+  app.get('/{*path}', (_req, res) => {
     res.sendFile(join(frontendDist, 'index.html'));
   });
 }

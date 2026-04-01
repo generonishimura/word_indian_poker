@@ -10,7 +10,8 @@ export function useSocket(
   const socketRef = useRef<GameSocket | null>(null);
 
   if (!socketRef.current) {
-    socketRef.current = io({
+    const wsUrl = import.meta.env.VITE_WS_URL;
+    socketRef.current = io(wsUrl || undefined, {
       autoConnect: true,
     });
   }
