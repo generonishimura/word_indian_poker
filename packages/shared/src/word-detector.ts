@@ -1,12 +1,13 @@
 import type { Player, WordMatch } from './types.js';
 
 export function detectWord(text: string, senderId: string, players: Player[]): WordMatch | null {
-  const normalizedText = text.toLowerCase();
+  const normalizedText = normalizeJapanese(text.toLowerCase());
 
-  // 自分のワードを先にチェック（自爆判定を優先）
+  // 発言者自身のワードのみチェック（自分のワードを言ったら脱落）
   const sender = players.find(p => p.id === senderId);
   if (sender && !sender.isEliminated) {
-    if (containsWord(normalizedText, sender.secretWord.toLowerCase())) {
+    const normalizedWord = normalizeJapanese(sender.secretWord.toLowerCase());
+    if (containsWord(normalizedText, normalizedWord)) {
       return {
         senderId,
         matchedPlayerId: sender.id,
@@ -16,25 +17,22 @@ export function detectWord(text: string, senderId: string, players: Player[]): W
     }
   }
 
-  // 他プレイヤーのワードをチェック
-  for (const player of players) {
-    if (player.id === senderId || player.isEliminated) continue;
-    if (containsWord(normalizedText, player.secretWord.toLowerCase())) {
-      return {
-        senderId,
-        matchedPlayerId: player.id,
-        matchedWord: player.secretWord,
-        isSelfMatch: false,
-      };
-    }
-  }
-
   return null;
+}
+
+/**
+ * カタカナをひらがなに変換し、表記ゆれを吸収する
+ * 「ネコ」→「ねこ」、「猫」はそのまま（漢字→読み変換は複雑すぎるので対象外）
+ */
+export function normalizeJapanese(text: string): string {
+  // カタカナ → ひらがな変換 (U+30A1-U+30F6 → U+3041-U+3096)
+  return text.replace(/[\u30A1-\u30F6]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0x60)
+  );
 }
 
 function containsWord(text: string, word: string): boolean {
   // 日本語の場合: テキスト内に単語がそのまま含まれているかチェック
-  // 英語の場合: トークン分割して完全一致
   if (isJapanese(word)) {
     return text.includes(word);
   }

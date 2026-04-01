@@ -51,6 +51,34 @@ export function registerHandlers(io: IO, socket: ClientSocket): void {
     broadcastGameState(io, room.roomCode);
   });
 
+  socket.on('select_theme', ({ themeId }, callback) => {
+    const roomCode = getPlayerRoom(socket.id);
+    if (!roomCode) {
+      callback({ error: 'ルームに参加していません' });
+      return;
+    }
+    const room = getRoom(roomCode);
+    if (!room) {
+      callback({ error: 'ルームが見つかりません' });
+      return;
+    }
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player?.isHost) {
+      callback({ error: 'ホストのみテーマを選択できます' });
+      return;
+    }
+
+    const result = room.selectTheme(themeId);
+    if (!result.ok) {
+      callback({ error: result.error });
+      return;
+    }
+
+    callback({ success: true });
+    broadcastGameState(io, roomCode);
+  });
+
   socket.on('start_game', (callback) => {
     const roomCode = getPlayerRoom(socket.id);
     if (!roomCode) {

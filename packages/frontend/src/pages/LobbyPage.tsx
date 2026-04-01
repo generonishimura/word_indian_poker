@@ -43,30 +43,44 @@ export function LobbyPage({ socket }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-500 to-purple-600 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-center mb-2 text-gray-800">
-          🃏 ワードインディアンポーカー
-        </h1>
-        <p className="text-center text-gray-500 mb-8 text-sm">
-          相手にワードを言わせたら勝ち！
-        </p>
+    <div className="min-h-screen bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 flex items-center justify-center p-4">
+      {/* 背景装飾 */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
+      </div>
+
+      <div className="relative bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-8 w-full max-w-md border border-white/20">
+        {/* ロゴ */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl mb-4 shadow-lg">
+            <span className="text-3xl">🃏</span>
+          </div>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+            ワードインディアンポーカー
+          </h1>
+          <p className="text-gray-400 text-sm mt-1">
+            自分のワードを言ったらドボン！
+          </p>
+        </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 rounded-lg p-3 mb-4 text-sm">
+          <div className="bg-red-50 border border-red-100 text-red-500 rounded-xl p-3 mb-5 text-sm text-center">
             {error}
           </div>
         )}
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">なまえ</label>
+        <div className="mb-5">
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+            なまえ
+          </label>
           <input
             type="text"
             value={playerName}
             onChange={(e) => { setPlayerName(e.target.value); setError(''); }}
-            placeholder="あなたの名前"
+            placeholder="あなたの名前を入力"
             maxLength={10}
-            className="w-full border border-gray-300 rounded-lg px-4 py-3 text-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+            className="w-full bg-gray-50 border-0 rounded-xl px-4 py-3.5 text-gray-800 placeholder:text-gray-300 focus:ring-2 focus:ring-violet-400 focus:bg-white outline-none transition-all"
           />
         </div>
 
@@ -74,13 +88,13 @@ export function LobbyPage({ socket }: Props) {
           <div className="space-y-3">
             <button
               onClick={() => setMode('create')}
-              className="w-full bg-indigo-500 text-white rounded-lg py-3 text-lg font-medium hover:bg-indigo-600 transition"
+              className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 text-white rounded-xl py-3.5 text-base font-semibold hover:from-violet-600 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
             >
               ルームをつくる
             </button>
             <button
               onClick={() => setMode('join')}
-              className="w-full bg-white border-2 border-indigo-500 text-indigo-500 rounded-lg py-3 text-lg font-medium hover:bg-indigo-50 transition"
+              className="w-full bg-gray-50 text-gray-700 rounded-xl py-3.5 text-base font-semibold hover:bg-gray-100 transition-all active:scale-[0.98]"
             >
               ルームに参加する
             </button>
@@ -91,13 +105,13 @@ export function LobbyPage({ socket }: Props) {
           <div className="space-y-3">
             <button
               onClick={handleCreate}
-              className="w-full bg-indigo-500 text-white rounded-lg py-3 text-lg font-medium hover:bg-indigo-600 transition"
+              className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 text-white rounded-xl py-3.5 text-base font-semibold hover:from-violet-600 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
             >
               ルームを作成
             </button>
             <button
-              onClick={() => setMode('select')}
-              className="w-full text-gray-500 text-sm hover:underline"
+              onClick={() => { setMode('select'); setError(''); }}
+              className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
             >
               もどる
             </button>
@@ -105,27 +119,29 @@ export function LobbyPage({ socket }: Props) {
         )}
 
         {mode === 'join' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">ルームコード</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                ルームコード
+              </label>
               <input
                 type="text"
                 value={roomCode}
                 onChange={(e) => { setRoomCode(e.target.value.toUpperCase()); setError(''); }}
-                placeholder="例: AB12"
+                placeholder="ABCD"
                 maxLength={4}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-lg text-center tracking-widest font-mono uppercase focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+                className="w-full bg-gray-50 border-0 rounded-xl px-4 py-3.5 text-center tracking-[0.3em] font-mono text-xl text-gray-800 placeholder:text-gray-300 uppercase focus:ring-2 focus:ring-violet-400 focus:bg-white outline-none transition-all"
               />
             </div>
             <button
               onClick={handleJoin}
-              className="w-full bg-indigo-500 text-white rounded-lg py-3 text-lg font-medium hover:bg-indigo-600 transition"
+              className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 text-white rounded-xl py-3.5 text-base font-semibold hover:from-violet-600 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
             >
               参加する
             </button>
             <button
-              onClick={() => setMode('select')}
-              className="w-full text-gray-500 text-sm hover:underline"
+              onClick={() => { setMode('select'); setError(''); }}
+              className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
             >
               もどる
             </button>
