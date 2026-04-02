@@ -6,13 +6,21 @@
 
 declare module "sst" {
   export interface Resource {
-    "Backend": {
-      "service": string
-      "type": "sst.aws.Service"
+    "Frontend": {
+      "type": "sst.aws.StaticSite"
       "url": string
     }
-    "Vpc": {
-      "type": "sst.aws.Vpc"
+    "GameApi": {
+      "type": "sst.aws.AppSync"
+      "url": string
+    }
+    "GameApiDataSourceGameResolverFunction": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
+    "GameRooms": {
+      "name": string
+      "type": "sst.aws.Dynamo"
     }
   }
 }

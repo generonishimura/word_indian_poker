@@ -17,57 +17,73 @@ export default $config({
   },
 
   async run() {
-    const vpc = new sst.aws.Vpc('Vpc', { nat: 'ec2' });
-    const cluster = new sst.aws.Cluster('Cluster', { vpc });
+    // DynamoDB テーブル
+    const table = new sst.aws.Dynamo('GameRooms', {
+      fields: { roomCode: 'string' },
+      primaryIndex: { hashKey: 'roomCode' },
+      ttl: 'ttl',
+    });
 
-    // バックエンド: Express(静的配信) + Socket.IO
-    const service = new sst.aws.Service('Backend', {
-      cluster,
-      loadBalancer: {
-        ports: [
-          { listen: '80/http', forward: '3000/http' },
-        ],
-      },
-      image: {
-        dockerfile: 'Dockerfile',
-      },
-      scaling: {
-        min: 1,
-        max: 2,
-      },
-      cpu: '0.25 vCPU',
-      memory: '0.5 GB',
-      dev: {
-        command: 'npm run dev -w @wip/backend',
+    // AppSync GraphQL API
+    const api = new sst.aws.AppSync('GameApi', {
+      schema: 'schema.graphql',
+    });
+
+    // API Key の取得（AppSync API_KEY 認証で自動作成される）
+    const apiKey = new aws.appsync.ApiKey('GameApiKey', {
+      apiId: api.id,
+    });
+
+    // Lambda データソース
+    const lambdaDS = api.addDataSource({
+      name: 'gameResolver',
+      lambda: {
+        handler: 'packages/backend/src/handler.handler',
+        runtime: 'nodejs22.x',
+        timeout: '10 seconds',
+        link: [table],
+        environment: {
+          TABLE_NAME: table.name,
+        },
       },
     });
 
-    // CloudFront CDN: ALBの前段に置いてHTTPS化
-    // 全リクエストをALBに転送（静的ファイルもSocket.IOもバックエンドが配信）
-    const cdn = new sst.aws.Cdn('Cdn', {
-      origins: [{
-        domainName: service.url.apply(url => new URL(url).hostname),
-        originId: 'backend',
-        customOriginConfig: {
-          httpPort: 80,
-          httpsPort: 443,
-          originProtocolPolicy: 'http-only',
-          originSslProtocols: ['TLSv1.2'],
-        },
-      }],
-      defaultCacheBehavior: {
-        targetOriginId: 'backend',
-        viewerProtocolPolicy: 'redirect-to-https',
-        allowedMethods: ['GET', 'HEAD', 'OPTIONS', 'PUT', 'PATCH', 'POST', 'DELETE'],
-        cachedMethods: ['GET', 'HEAD'],
-        cachePolicyId: '4135ea2d-6df8-44a3-9df3-4b5a84be39ad', // CachingDisabled
-        originRequestPolicyId: '216adef6-5c7f-47e4-b989-5492eafa07d3', // AllViewer
+    // Query リゾルバ
+    api.addResolver('Query getGameState', {
+      dataSource: lambdaDS.name,
+    });
+
+    // Mutation リゾルバ
+    const mutations = [
+      'createRoom',
+      'joinRoom',
+      'selectTheme',
+      'startGame',
+      'sendMessage',
+      'restartGame',
+    ];
+    for (const mutation of mutations) {
+      api.addResolver(`Mutation ${mutation}`, {
+        dataSource: lambdaDS.name,
+      });
+    }
+
+    // フロントエンド (Vite SPA)
+    const site = new sst.aws.StaticSite('Frontend', {
+      path: 'packages/frontend',
+      build: {
+        command: 'npm run build',
+        output: 'dist',
+      },
+      environment: {
+        VITE_APPSYNC_URL: api.url,
+        VITE_APPSYNC_API_KEY: apiKey.key,
       },
     });
 
     return {
-      url: cdn.url,
-      api: service.url,
+      url: site.url,
+      apiUrl: api.url,
     };
   },
 });

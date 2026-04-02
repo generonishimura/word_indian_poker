@@ -6,13 +6,12 @@
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev -w @wip/backend\" \"npm run dev -w @wip/frontend\"",
-    "dev:ngrok": "npm run build && concurrently \"NODE_ENV=production node packages/backend/dist/index.js\" \"ngrok http 3000\"",
     "build": "npm run build -w @wip/shared && npm run build -w @wip/backend && npm run build -w @wip/frontend",
     "test": "npm run test -w @wip/shared -w @wip/backend",
     "lint": "eslint packages/*/src/**/*.ts packages/*/src/**/*.tsx"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
+    "concurrently": "^9.2.1",
     "typescript": "^5.7.3"
   }
 }

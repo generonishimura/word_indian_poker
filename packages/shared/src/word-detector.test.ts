@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { detectWord, normalizeJapanese } from './word-detector.js';
 import type { Player } from './types.js';
 
-function makePlayer(overrides: Partial<Player> & { id: string; name: string; secretWord: string }): Player {
+function makePlayer(overrides: Partial<Player> & { id: string; name: string; secretWords: string[] }): Player {
   return {
     isEliminated: false,
     isHost: false,
@@ -28,8 +28,8 @@ describe('normalizeJapanese', () => {
 describe('detectWord', () => {
   it('自分のワードを言ったらマッチする', () => {
     const players = [
-      makePlayer({ id: 'p1', name: 'Alice', secretWord: 'ねこ' }),
-      makePlayer({ id: 'p2', name: 'Bob', secretWord: 'いぬ' }),
+      makePlayer({ id: 'p1', name: 'Alice', secretWords: ['ねこ'] }),
+      makePlayer({ id: 'p2', name: 'Bob', secretWords: ['いぬ'] }),
     ];
 
     const result = detectWord('いぬって可愛いよね', 'p2', players);
@@ -42,8 +42,8 @@ describe('detectWord', () => {
 
   it('他人のワードを言ってもマッチしない', () => {
     const players = [
-      makePlayer({ id: 'p1', name: 'Alice', secretWord: 'ねこ' }),
-      makePlayer({ id: 'p2', name: 'Bob', secretWord: 'いぬ' }),
+      makePlayer({ id: 'p1', name: 'Alice', secretWords: ['ねこ'] }),
+      makePlayer({ id: 'p2', name: 'Bob', secretWords: ['いぬ'] }),
     ];
 
     const result = detectWord('今日ねこを見たよ', 'p2', players);
@@ -53,7 +53,7 @@ describe('detectWord', () => {
 
   it('自分のワードが含まれていなければnullを返す', () => {
     const players = [
-      makePlayer({ id: 'p1', name: 'Alice', secretWord: 'ねこ' }),
+      makePlayer({ id: 'p1', name: 'Alice', secretWords: ['ねこ'] }),
     ];
 
     const result = detectWord('今日は天気がいいね', 'p1', players);
@@ -63,7 +63,7 @@ describe('detectWord', () => {
 
   it('脱落済みの発言者はマッチしない', () => {
     const players = [
-      makePlayer({ id: 'p1', name: 'Alice', secretWord: 'ねこ', isEliminated: true }),
+      makePlayer({ id: 'p1', name: 'Alice', secretWords: ['ねこ'], isEliminated: true }),
     ];
 
     const result = detectWord('ねこだよ', 'p1', players);
@@ -73,7 +73,7 @@ describe('detectWord', () => {
 
   it('カタカナで書いてもひらがなワードにマッチする', () => {
     const players = [
-      makePlayer({ id: 'p1', name: 'Alice', secretWord: 'ねこ' }),
+      makePlayer({ id: 'p1', name: 'Alice', secretWords: ['ねこ'] }),
     ];
 
     const result = detectWord('ネコが好き', 'p1', players);
@@ -84,7 +84,7 @@ describe('detectWord', () => {
 
   it('ひらがなで書いてもカタカナワードにマッチする', () => {
     const players = [
-      makePlayer({ id: 'p1', name: 'Alice', secretWord: 'ラーメン' }),
+      makePlayer({ id: 'p1', name: 'Alice', secretWords: ['ラーメン'] }),
     ];
 
     const result = detectWord('らーめん食べたい', 'p1', players);
@@ -95,7 +95,7 @@ describe('detectWord', () => {
 
   it('英語ワードはトークン完全一致でマッチする', () => {
     const players = [
-      makePlayer({ id: 'p1', name: 'Alice', secretWord: 'dog' }),
+      makePlayer({ id: 'p1', name: 'Alice', secretWords: ['dog'] }),
     ];
 
     const result = detectWord('I love my dog', 'p1', players);
@@ -106,7 +106,7 @@ describe('detectWord', () => {
 
   it('英語ワードの部分一致はマッチしない', () => {
     const players = [
-      makePlayer({ id: 'p1', name: 'Alice', secretWord: 'cat' }),
+      makePlayer({ id: 'p1', name: 'Alice', secretWords: ['cat'] }),
     ];
 
     const result = detectWord('That was a catastrophe', 'p1', players);
@@ -116,12 +116,45 @@ describe('detectWord', () => {
 
   it('英語ワードは大文字小文字を無視する', () => {
     const players = [
-      makePlayer({ id: 'p1', name: 'Alice', secretWord: 'Cat' }),
+      makePlayer({ id: 'p1', name: 'Alice', secretWords: ['Cat'] }),
     ];
 
     const result = detectWord('I love CAT', 'p1', players);
 
     expect(result).not.toBeNull();
     expect(result!.matchedWord).toBe('Cat');
+  });
+
+  it('複数ワードのうちどれかを言ったらマッチする', () => {
+    const players = [
+      makePlayer({ id: 'p1', name: 'Alice', secretWords: ['ねこ', 'いぬ'] }),
+    ];
+
+    const result = detectWord('いぬが走ってた', 'p1', players);
+
+    expect(result).not.toBeNull();
+    expect(result!.matchedWord).toBe('いぬ');
+    expect(result!.isSelfMatch).toBe(true);
+  });
+
+  it('複数ワードで最初にマッチしたワードが返る', () => {
+    const players = [
+      makePlayer({ id: 'p1', name: 'Alice', secretWords: ['ねこ', 'いぬ'] }),
+    ];
+
+    const result = detectWord('ねこといぬがいた', 'p1', players);
+
+    expect(result).not.toBeNull();
+    expect(result!.matchedWord).toBe('ねこ');
+  });
+
+  it('複数ワードのどれにもマッチしなければnullを返す', () => {
+    const players = [
+      makePlayer({ id: 'p1', name: 'Alice', secretWords: ['ねこ', 'いぬ'] }),
+    ];
+
+    const result = detectWord('今日は天気がいいね', 'p1', players);
+
+    expect(result).toBeNull();
   });
 });

@@ -1,9 +1,11 @@
 import { randomBytes } from 'node:crypto';
-import type { Player, GamePhase, GameState, PlayerView, Message, ChatMessage, WordMatch } from '@wip/shared';
-import { MIN_PLAYERS, MAX_PLAYERS, ROOM_CODE_LENGTH } from '@wip/shared';
-import { detectWord } from '@wip/shared';
+import type { Player, GamePhase, GameState, PlayerView, Message, ChatMessage, WordMatch, RoomRecord } from '@wip/shared';
+import { MIN_PLAYERS, MAX_PLAYERS, ROOM_CODE_LENGTH, WORD_ADD_INTERVAL_MS, MAX_CHALLENGES } from '@wip/shared';
+import { detectWord, normalizeJapanese } from '@wip/shared';
 import { getThemeById } from '@wip/shared';
 import { assignWords } from './WordAssigner.js';
+
+const TTL_HOURS = 24;
 
 export class GameRoom {
   readonly roomCode: string;
@@ -13,9 +15,40 @@ export class GameRoom {
   winnerId?: string;
   themeId?: string;
   private messageCounter = 0;
+  private readonly createdAt: number;
 
   constructor(roomCode?: string) {
     this.roomCode = roomCode ?? GameRoom.generateRoomCode();
+    this.createdAt = Date.now();
+  }
+
+  toRecord(): RoomRecord {
+    const now = Date.now();
+    return {
+      roomCode: this.roomCode,
+      phase: this.phase,
+      players: this.players,
+      messages: this.messages,
+      winnerId: this.winnerId,
+      themeId: this.themeId,
+      messageCounter: this.messageCounter,
+      createdAt: this.createdAt,
+      updatedAt: now,
+      ttl: Math.floor(now / 1000) + TTL_HOURS * 3600,
+    };
+  }
+
+  static fromRecord(record: RoomRecord): GameRoom {
+    const room = new GameRoom(record.roomCode);
+    room.phase = record.phase;
+    room.players = record.players;
+    room.messages = record.messages;
+    room.winnerId = record.winnerId;
+    room.themeId = record.themeId;
+    room.messageCounter = record.messageCounter;
+    // createdAt is set in constructor, override it
+    (room as unknown as { createdAt: number }).createdAt = record.createdAt;
+    return room;
   }
 
   static generateRoomCode(): string {
@@ -28,7 +61,7 @@ export class GameRoom {
     return code;
   }
 
-  addPlayer(id: string, name: string): { ok: true } | { ok: false; error: string } {
+  addPlayer(id: string, name: string, avatarId?: string): { ok: true } | { ok: false; error: string } {
     if (this.phase !== 'waiting') {
       return { ok: false, error: 'ゲームはすでに開始されています' };
     }
@@ -43,7 +76,8 @@ export class GameRoom {
     this.players.push({
       id,
       name,
-      secretWord: '',
+      avatarId,
+      secretWords: [],
       isEliminated: false,
       isHost,
     });
@@ -87,10 +121,13 @@ export class GameRoom {
     }
 
     const words = assignWords(this.players.length, this.themeId);
+    const now = Date.now();
     this.players.forEach((p, i) => {
-      p.secretWord = words[i];
+      p.secretWords = [words[i]];
       p.isEliminated = false;
       p.eliminationReason = undefined;
+      p.lastWordAddedAt = now;
+      p.challengesRemaining = MAX_CHALLENGES;
     });
 
     this.phase = 'playing';
@@ -102,7 +139,7 @@ export class GameRoom {
     return { ok: true };
   }
 
-  handleMessage(senderId: string, text: string): { message: Message; match: WordMatch | null } | { error: string } {
+  handleMessage(senderId: string, text: string): { message: Message; match: WordMatch | null; addedWords: Array<{ playerId: string; word: string }> } | { error: string } {
     if (this.phase !== 'playing') {
       return { error: 'ゲーム中ではありません' };
     }
@@ -110,6 +147,9 @@ export class GameRoom {
     const sender = this.players.find(p => p.id === senderId);
     if (!sender) return { error: 'プレイヤーが見つかりません' };
     if (sender.isEliminated) return { error: 'あなたはすでに脱落しています' };
+
+    // メッセージ処理前にワード追加チェック
+    const addedWords = this.checkAndAddWords();
 
     const match = detectWord(text, senderId, this.players);
 
@@ -128,7 +168,147 @@ export class GameRoom {
       this.applyMatch(match);
     }
 
-    return { message: chatMsg, match };
+    return { message: chatMsg, match, addedWords };
+  }
+
+  checkAndAddWords(): Array<{ playerId: string; word: string }> {
+    if (this.phase !== 'playing' || !this.themeId) return [];
+
+    const now = Date.now();
+    const theme = getThemeById(this.themeId);
+    if (!theme) return [];
+
+    // 全プレイヤーの使用済みワードを収集
+    const usedWords = new Set(this.players.flatMap(p => p.secretWords));
+
+    const added: Array<{ playerId: string; word: string }> = [];
+
+    for (const player of this.players) {
+      if (player.isEliminated) continue;
+      if (!player.lastWordAddedAt) continue;
+      if (now - player.lastWordAddedAt < WORD_ADD_INTERVAL_MS) continue;
+
+      // 未使用のワードから選ぶ
+      const availableWords = theme.words.filter(w => !usedWords.has(w));
+      if (availableWords.length === 0) continue;
+
+      const newWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+      player.secretWords.push(newWord);
+      player.lastWordAddedAt = now;
+      usedWords.add(newWord);
+      added.push({ playerId: player.id, word: newWord });
+    }
+
+    if (added.length > 0) {
+      const names = added.map(a => {
+        const p = this.players.find(p => p.id === a.playerId);
+        return p?.name;
+      }).filter(Boolean).join('、');
+      this.addSystemMessage(`${names} にドボンワードが追加されました！`);
+    }
+
+    return added;
+  }
+
+  handleChallenge(playerId: string, guess: string): { success: boolean; guessedWord: string; matchedWord?: string; penaltyPlayerId?: string; penaltyWord?: string } | { error: string } {
+    if (this.phase !== 'playing') {
+      return { error: 'ゲーム中ではありません' };
+    }
+
+    const player = this.players.find(p => p.id === playerId);
+    if (!player) return { error: 'プレイヤーが見つかりません' };
+    if (player.isEliminated) return { error: 'あなたはすでに脱落しています' };
+    if ((player.challengesRemaining ?? 0) <= 0) return { error: 'チャレンジ回数が残っていません' };
+
+    const normalizedGuess = normalizeJapanese(guess.toLowerCase());
+    const matchedIndex = player.secretWords.findIndex(
+      w => normalizeJapanese(w.toLowerCase()) === normalizedGuess
+    );
+
+    if (matchedIndex !== -1) {
+      // チャレンジ成功
+      const matchedWord = player.secretWords[matchedIndex];
+      player.secretWords.splice(matchedIndex, 1);
+
+      this.addSystemMessage(`${player.name} がチャレンジ成功！ワード「${matchedWord}」を当てた！`);
+
+      // 発言数が最も少ない生存プレイヤー（自分以外）にワードを追加
+      const penaltyResult = this.addWordToLeastActivePlayer(playerId);
+      if (penaltyResult) {
+        this.addSystemMessage(`${penaltyResult.playerName} にドボンワードが追加されました！`);
+      }
+
+      // 全ワードがなくなったら勝利
+      if (player.secretWords.length === 0) {
+        this.winnerId = player.id;
+        this.addSystemMessage(`${player.name} が全ワードを当てて勝利！`);
+        this.phase = 'finished';
+      }
+
+      return {
+        success: true,
+        guessedWord: guess,
+        matchedWord,
+        penaltyPlayerId: penaltyResult?.playerId,
+        penaltyWord: penaltyResult?.word,
+      };
+    } else {
+      // チャレンジ失敗 — 残数デクリメント + 自分にワード追加
+      player.challengesRemaining = (player.challengesRemaining ?? 0) - 1;
+      const newWord = this.pickNewWord();
+      if (newWord) {
+        player.secretWords.push(newWord);
+        this.addSystemMessage(`${player.name} のチャレンジ失敗…ドボンワードが追加された！`);
+        return { success: false, guessedWord: guess, penaltyPlayerId: player.id, penaltyWord: newWord };
+      }
+      this.addSystemMessage(`${player.name} のチャレンジ失敗…`);
+      return { success: false, guessedWord: guess };
+    }
+  }
+
+  private addWordToLeastActivePlayer(excludePlayerId: string): { playerId: string; playerName: string; word: string } | null {
+    const alivePlayers = this.players.filter(p => !p.isEliminated && p.id !== excludePlayerId);
+    if (alivePlayers.length === 0) return null;
+
+    // 各プレイヤーのチャットメッセージ数をカウント
+    const messageCounts = new Map<string, number>();
+    for (const p of alivePlayers) {
+      messageCounts.set(p.id, 0);
+    }
+    for (const msg of this.messages) {
+      if (msg.type === 'chat' && messageCounts.has(msg.playerId)) {
+        messageCounts.set(msg.playerId, (messageCounts.get(msg.playerId) ?? 0) + 1);
+      }
+    }
+
+    // 発言数が最も少ないプレイヤーを選ぶ
+    let minCount = Infinity;
+    let target = alivePlayers[0];
+    for (const p of alivePlayers) {
+      const count = messageCounts.get(p.id) ?? 0;
+      if (count < minCount) {
+        minCount = count;
+        target = p;
+      }
+    }
+
+    const newWord = this.pickNewWord();
+    if (!newWord) return null;
+
+    target.secretWords.push(newWord);
+    return { playerId: target.id, playerName: target.name, word: newWord };
+  }
+
+  private pickNewWord(): string | null {
+    if (!this.themeId) return null;
+    const theme = getThemeById(this.themeId);
+    if (!theme) return null;
+
+    const usedWords = new Set(this.players.flatMap(p => p.secretWords));
+    const availableWords = theme.words.filter(w => !usedWords.has(w));
+    if (availableWords.length === 0) return null;
+
+    return availableWords[Math.floor(Math.random() * availableWords.length)];
   }
 
   private applyMatch(match: WordMatch): void {
@@ -160,9 +340,11 @@ export class GameRoom {
     this.winnerId = undefined;
     this.themeId = undefined;
     this.players.forEach(p => {
-      p.secretWord = '';
+      p.secretWords = [];
       p.isEliminated = false;
       p.eliminationReason = undefined;
+      p.lastWordAddedAt = undefined;
+      p.challengesRemaining = undefined;
     });
     return { ok: true };
   }
@@ -171,10 +353,12 @@ export class GameRoom {
     const playerViews: PlayerView[] = this.players.map(p => ({
       id: p.id,
       name: p.name,
-      secretWord: p.id === playerId ? null : p.secretWord,
+      avatarId: p.avatarId,
+      secretWords: p.id === playerId ? null : p.secretWords,
       isEliminated: p.isEliminated,
       eliminationReason: p.eliminationReason,
       isHost: p.isHost,
+      challengesRemaining: p.challengesRemaining,
     }));
 
     const theme = this.themeId ? getThemeById(this.themeId) : undefined;
