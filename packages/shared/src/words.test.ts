@@ -58,8 +58,8 @@ describe('TALK_THEMES word containment check', () => {
       expect(unique.size).toBe(theme.words.length);
     });
 
-    it(`${theme.id}: ワードが50個以上ある`, () => {
-      expect(theme.words.length).toBeGreaterThanOrEqual(50);
+    it(`${theme.id}: ワードが100個ある`, () => {
+      expect(theme.words.length).toBe(100);
     });
   }
 });
