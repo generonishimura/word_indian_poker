@@ -369,24 +369,19 @@ describe('GameRoom', () => {
       expect(playingRoom.players[1].secretWords.length).toBe(p2WordsBefore + 1);
     });
 
-    it('チャレンジ成功時、当てたワードはsecretWordsから削除される', () => {
+    it('チャレンジ成功時、当てたワードが新しいワードに置き換わる', () => {
       const playingRoom = setupPlayingRoom();
       const myWord = playingRoom.players[0].secretWords[0];
+      const wordCountBefore = playingRoom.players[0].secretWords.length;
 
       playingRoom.handleChallenge('p1', myWord);
 
+      // ワード数は変わらない
+      expect(playingRoom.players[0].secretWords.length).toBe(wordCountBefore);
+      // 元のワードは含まれない
       expect(playingRoom.players[0].secretWords).not.toContain(myWord);
-    });
-
-    it('チャレンジ成功で全ワードがなくなったら勝利', () => {
-      const playingRoom = setupPlayingRoom();
-      const myWord = playingRoom.players[0].secretWords[0];
-
-      playingRoom.handleChallenge('p1', myWord);
-
-      // secretWordsが空 → 勝利
-      expect(playingRoom.winnerId).toBe('p1');
-      expect(playingRoom.phase).toBe('finished');
+      // ゲームは続行
+      expect(playingRoom.phase).toBe('playing');
     });
 
     it('間違ったワードでチャレンジ失敗', () => {
@@ -513,11 +508,13 @@ describe('GameRoom', () => {
       const playingRoom = setupPlayingRoom();
       // 発言なし = 両者0回。成功時は自分以外に追加
       const myWord = playingRoom.players[0].secretWords[0];
+      const p2WordsBefore = playingRoom.players[1].secretWords.length;
 
       playingRoom.handleChallenge('p1', myWord);
 
-      // p1は当てたワードが消え、p2にワードが追加されているはず
-      expect(playingRoom.players[1].secretWords.length).toBe(2);
+      // p1はワード数維持（置き換え）、p2にワード追加
+      expect(playingRoom.players[0].secretWords.length).toBe(1);
+      expect(playingRoom.players[1].secretWords.length).toBe(p2WordsBefore + 1);
     });
   });
 
