@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { sanitizeChatInput, isValidChatInput } from '@wip/shared';
 
 interface Props {
@@ -9,10 +9,23 @@ interface Props {
 
 export function ChatInput({ onSend, disabled = false, placeholder = 'ひらがな・カタカナで入力' }: Props) {
   const [text, setText] = useState('');
+  const composingRef = useRef(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const sanitized = sanitizeChatInput(e.target.value);
-    setText(sanitized);
+    if (composingRef.current) {
+      setText(e.target.value);
+    } else {
+      setText(sanitizeChatInput(e.target.value));
+    }
+  };
+
+  const handleCompositionStart = () => {
+    composingRef.current = true;
+  };
+
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
+    composingRef.current = false;
+    setText(sanitizeChatInput(e.currentTarget.value));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -29,6 +42,8 @@ export function ChatInput({ onSend, disabled = false, placeholder = 'ひらが�
         type="text"
         value={text}
         onChange={handleChange}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
         placeholder={placeholder}
         disabled={disabled}
         className="flex-1 bg-gray-50 border border-gray-200 rounded-full px-5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white disabled:bg-gray-100 disabled:text-gray-300 transition-all placeholder:text-gray-300"

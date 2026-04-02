@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { sanitizeChatInput, isValidChatInput } from '@wip/shared';
 
 interface Props {
@@ -11,6 +11,7 @@ export function ChallengeButton({ onChallenge, disabled, challengesRemaining }: 
   const [isOpen, setIsOpen] = useState(false);
   const [guess, setGuess] = useState('');
   const [result, setResult] = useState<'success' | 'fail' | null>(null);
+  const composingRef = useRef(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +30,20 @@ export function ChallengeButton({ onChallenge, disabled, challengesRemaining }: 
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setGuess(sanitizeChatInput(e.target.value));
+    if (composingRef.current) {
+      setGuess(e.target.value);
+    } else {
+      setGuess(sanitizeChatInput(e.target.value));
+    }
+  };
+
+  const handleCompositionStart = () => {
+    composingRef.current = true;
+  };
+
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
+    composingRef.current = false;
+    setGuess(sanitizeChatInput(e.currentTarget.value));
   };
 
   if (disabled) return null;
@@ -79,6 +93,8 @@ export function ChallengeButton({ onChallenge, disabled, challengesRemaining }: 
                     type="text"
                     value={guess}
                     onChange={handleChange}
+                    onCompositionStart={handleCompositionStart}
+                    onCompositionEnd={handleCompositionEnd}
                     placeholder="ひらがな・カタカナでにゅうりょく"
                     className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 mb-3"
                     autoFocus
