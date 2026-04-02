@@ -1,16 +1,13 @@
-import { useState } from 'react';
-import type { GameState } from '@wip/shared';
-import { useSocket } from './hooks/useSocket.js';
+import { useGameApi } from './hooks/useGameApi.js';
 import { LobbyPage } from './pages/LobbyPage.js';
 import { GamePage } from './pages/GamePage.js';
 
 export default function App() {
-  const [gameState, setGameState] = useState<GameState | null>(null);
-  const socket = useSocket(setGameState);
+  const api = useGameApi();
 
-  if (!gameState) {
-    return <LobbyPage socket={socket} />;
+  if (!api.gameState) {
+    return <LobbyPage api={api} />;
   }
 
-  return <GamePage socket={socket} gameState={gameState} />;
+  return <GamePage api={api} />;
 }

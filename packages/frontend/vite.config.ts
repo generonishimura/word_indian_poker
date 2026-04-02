@@ -6,9 +6,8 @@ export default defineConfig({
   plugins: [tailwindcss(), react()],
   server: {
     proxy: {
-      '/socket.io': {
-        target: 'http://localhost:3000',
-        ws: true,
+      '/graphql': {
+        target: 'http://localhost:3001',
       },
     },
   },

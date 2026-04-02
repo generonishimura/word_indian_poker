@@ -6,14 +6,16 @@ export function detectWord(text: string, senderId: string, players: Player[]): W
   // 発言者自身のワードのみチェック（自分のワードを言ったら脱落）
   const sender = players.find(p => p.id === senderId);
   if (sender && !sender.isEliminated) {
-    const normalizedWord = normalizeJapanese(sender.secretWord.toLowerCase());
-    if (containsWord(normalizedText, normalizedWord)) {
-      return {
-        senderId,
-        matchedPlayerId: sender.id,
-        matchedWord: sender.secretWord,
-        isSelfMatch: true,
-      };
+    for (const word of sender.secretWords) {
+      const normalizedWord = normalizeJapanese(word.toLowerCase());
+      if (containsWord(normalizedText, normalizedWord)) {
+        return {
+          senderId,
+          matchedPlayerId: sender.id,
+          matchedWord: word,
+          isSelfMatch: true,
+        };
+      }
     }
   }
 

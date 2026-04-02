@@ -2,22 +2,35 @@ export type GamePhase = 'waiting' | 'playing' | 'finished';
 
 export type EliminationReason = 'said_own_word';
 
+export interface ChallengeResult {
+  success: boolean;
+  guessedWord: string;
+  matchedWord?: string;
+  penaltyPlayerId?: string;
+  penaltyWord?: string;
+}
+
 export interface Player {
   id: string;
   name: string;
-  secretWord: string;
+  avatarId?: string;
+  secretWords: string[];
   isEliminated: boolean;
   eliminationReason?: EliminationReason;
   isHost: boolean;
+  lastWordAddedAt?: number;
+  challengesRemaining?: number;
 }
 
 export interface PlayerView {
   id: string;
   name: string;
-  secretWord: string | null; // null = 自分自身のワード（見えない）
+  avatarId?: string;
+  secretWords: string[] | null; // null = 自分自身のワード（見えない）
   isEliminated: boolean;
   eliminationReason?: EliminationReason;
   isHost: boolean;
+  challengesRemaining?: number;
 }
 
 export interface ChatMessage {
@@ -55,20 +68,16 @@ export interface WordMatch {
   isSelfMatch: boolean;
 }
 
-// Socket.IO Events
-export interface ClientToServerEvents {
-  create_room: (data: { playerName: string }, callback: (res: { roomCode: string } | { error: string }) => void) => void;
-  join_room: (data: { roomCode: string; playerName: string }, callback: (res: { success: true } | { error: string }) => void) => void;
-  select_theme: (data: { themeId: string }, callback: (res: { success: true } | { error: string }) => void) => void;
-  start_game: (callback: (res: { success: true } | { error: string }) => void) => void;
-  send_message: (data: { text: string }) => void;
-  restart_game: (callback: (res: { success: true } | { error: string }) => void) => void;
-}
-
-export interface ServerToClientEvents {
-  game_state: (state: GameState) => void;
-  new_message: (message: Message) => void;
-  player_eliminated: (data: { playerId: string; playerName: string; reason: EliminationReason; word: string }) => void;
-  game_over: (data: { winnerId: string; winnerName: string }) => void;
-  error: (data: { message: string }) => void;
+// DynamoDB に保存するルームデータ
+export interface RoomRecord {
+  roomCode: string;
+  phase: GamePhase;
+  players: Player[];
+  messages: Message[];
+  winnerId?: string;
+  themeId?: string;
+  messageCounter: number;
+  createdAt: number;
+  updatedAt: number;
+  ttl: number; // DynamoDB TTL (24時間後に自動削除)
 }

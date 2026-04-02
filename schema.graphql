@@ -1,0 +1,82 @@
+type Query {
+  getGameState(roomCode: String!, playerId: String!): GameState!
+}
+
+type Mutation {
+  createRoom(playerId: String!, playerName: String!, avatarId: String): MutationResult!
+  joinRoom(roomCode: String!, playerId: String!, playerName: String!, avatarId: String): MutationResult!
+  selectTheme(roomCode: String!, playerId: String!, themeId: String!): MutationResult!
+  startGame(roomCode: String!, playerId: String!): MutationResult!
+  sendMessage(roomCode: String!, playerId: String!, text: String!): MutationResult!
+  challenge(roomCode: String!, playerId: String!, guess: String!): MutationResult!
+  restartGame(roomCode: String!, playerId: String!): MutationResult!
+}
+
+type Subscription {
+  onRoomEvent(roomCode: String!): MutationResult
+    @aws_subscribe(mutations: ["createRoom", "joinRoom", "selectTheme", "startGame", "sendMessage", "challenge", "restartGame"])
+}
+
+type MutationResult {
+  roomCode: String!
+  eventType: String!
+  timestamp: Float!
+  error: String
+  message: Message
+  elimination: Elimination
+  gameOver: GameOverInfo
+  challenge: ChallengeInfo
+}
+
+type ChallengeInfo {
+  success: Boolean!
+  guessedWord: String!
+  matchedWord: String
+  penaltyPlayerId: String
+  penaltyPlayerName: String
+  penaltyWord: String
+}
+
+type GameState {
+  roomCode: String!
+  phase: String!
+  players: [PlayerView!]!
+  messages: [Message!]!
+  currentPlayerId: String!
+  winnerId: String
+  themeId: String
+  themeLabel: String
+}
+
+type PlayerView {
+  id: String!
+  name: String!
+  avatarId: String
+  secretWords: [String!]
+  isEliminated: Boolean!
+  eliminationReason: String
+  isHost: Boolean!
+  challengesRemaining: Int
+}
+
+type Message {
+  type: String!
+  id: String!
+  text: String!
+  timestamp: Float!
+  playerId: String
+  playerName: String
+  triggeredWord: String
+}
+
+type Elimination {
+  playerId: String!
+  playerName: String!
+  reason: String!
+  word: String!
+}
+
+type GameOverInfo {
+  winnerId: String!
+  winnerName: String!
+}

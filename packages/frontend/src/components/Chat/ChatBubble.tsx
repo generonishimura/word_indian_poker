@@ -25,12 +25,12 @@ export function ChatBubble({ message, isOwn }: Props) {
           <span className="text-[11px] text-gray-400 font-medium ml-3 mb-0.5">{message.playerName}</span>
         )}
         <div
-          className={`rounded-2xl px-4 py-2.5 shadow-sm ${
+          className={`rounded-2xl px-4 py-2.5 ${
             hasTriggered
               ? 'bg-red-50 border-2 border-red-300 animate-pulse'
               : isOwn
-                ? 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white'
-                : 'bg-white border border-gray-100'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-white border border-gray-200'
           }`}
         >
           <p className={`text-sm leading-relaxed ${isOwn && !hasTriggered ? 'text-white' : 'text-gray-800'}`}>

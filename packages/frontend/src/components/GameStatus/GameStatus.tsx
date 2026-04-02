@@ -1,4 +1,5 @@
 import type { GameState } from '@wip/shared';
+import { PixelAvatar } from '../Avatar/PixelAvatar.js';
 
 interface Props {
   gameState: GameState;
@@ -11,12 +12,12 @@ export function GameStatus({ gameState, isHost, onRestart }: Props) {
   const isWinner = gameState.winnerId === gameState.currentPlayerId;
 
   return (
-    <div className="bg-white border-t border-gray-100 p-5 shrink-0 shadow-lg">
+    <div className="bg-white border-t border-gray-200 p-5 shrink-0">
       <div className="text-center max-w-sm mx-auto">
         {isWinner ? (
           <div className="mb-3">
             <span className="text-4xl">🎉</span>
-            <p className="text-xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent mt-1">
+            <p className="text-xl font-bold text-amber-500 mt-1">
               あなたの勝ち！
             </p>
           </div>
@@ -34,9 +35,20 @@ export function GameStatus({ gameState, isHost, onRestart }: Props) {
         {/* 全員のワードを公開 */}
         <div className="flex justify-center gap-2 mb-4 flex-wrap">
           {gameState.players.map(p => (
-            <div key={p.id} className="bg-gray-50 rounded-xl px-3 py-2 text-center min-w-[70px]">
+            <div key={p.id} className="bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 text-center min-w-[70px]">
+              {p.avatarId && (
+                <div className="flex justify-center mb-1">
+                  <PixelAvatar avatarId={p.avatarId} size={24} />
+                </div>
+              )}
               <p className="text-[11px] text-gray-400">{p.name}</p>
-              <p className="font-bold text-violet-600 text-sm">{p.secretWord ?? '???'}</p>
+              {p.secretWords ? (
+                p.secretWords.map((word, i) => (
+                  <p key={i} className="font-bold text-indigo-600 text-sm">{word}</p>
+                ))
+              ) : (
+                <p className="font-bold text-indigo-600 text-sm">???</p>
+              )}
             </div>
           ))}
         </div>
@@ -44,7 +56,7 @@ export function GameStatus({ gameState, isHost, onRestart }: Props) {
         {isHost && (
           <button
             onClick={onRestart}
-            className="bg-gradient-to-r from-violet-500 to-indigo-600 text-white rounded-xl px-8 py-3 font-semibold hover:from-violet-600 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
+            className="bg-indigo-600 text-white rounded-lg px-8 py-3 font-semibold hover:bg-indigo-700 transition-colors active:scale-[0.98]"
           >
             もう一回！
           </button>
