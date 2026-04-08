@@ -60,6 +60,7 @@ export default $config({
       'selectTheme',
       'startGame',
       'sendMessage',
+      'challenge',
       'restartGame',
     ];
     for (const mutation of mutations) {

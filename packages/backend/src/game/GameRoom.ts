@@ -226,9 +226,14 @@ export class GameRoom {
     );
 
     if (matchedIndex !== -1) {
-      // チャレンジ成功
+      // チャレンジ成功 — 当てたワードを新しいワードに置き換え
       const matchedWord = player.secretWords[matchedIndex];
-      player.secretWords.splice(matchedIndex, 1);
+      const replacementWord = this.pickNewWord();
+      if (replacementWord) {
+        player.secretWords[matchedIndex] = replacementWord;
+      } else {
+        player.secretWords.splice(matchedIndex, 1);
+      }
 
       this.addSystemMessage(`${player.name} がチャレンジ成功！ワード「${matchedWord}」を当てた！`);
 
@@ -236,13 +241,6 @@ export class GameRoom {
       const penaltyResult = this.addWordToLeastActivePlayer(playerId);
       if (penaltyResult) {
         this.addSystemMessage(`${penaltyResult.playerName} にドボンワードが追加されました！`);
-      }
-
-      // 全ワードがなくなったら勝利
-      if (player.secretWords.length === 0) {
-        this.winnerId = player.id;
-        this.addSystemMessage(`${player.name} が全ワードを当てて勝利！`);
-        this.phase = 'finished';
       }
 
       return {
