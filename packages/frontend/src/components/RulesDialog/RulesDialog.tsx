@@ -74,15 +74,16 @@ function RulesDialog({ onClose }: { onClose: () => void }) {
             <h3 className="font-bold text-gray-800 mb-1">チャレンジ</h3>
             <ul className="list-disc list-inside space-y-1">
               <li>自分のワードがわかったと思ったら「チャレンジ」で宣言できます</li>
-              <li>当たれば相手を脱落させられます</li>
-              <li>外れると自分が脱落します</li>
+              <li>成功すると、おとなしい相手にワードが追加されます</li>
+              <li>失敗すると、自分にワードが追加されます</li>
+              <li>チャレンジは1ゲームにつき<span className="font-bold">5回まで</span></li>
             </ul>
           </section>
 
           <section>
             <h3 className="font-bold text-gray-800 mb-1">ワード追加</h3>
             <ul className="list-disc list-inside space-y-1">
-              <li>2分ごとに新しいワードが追加されます</li>
+              <li>2分ごとに新しいワードが自動で追加されます</li>
               <li>ワードが増えるほど会話が難しくなります！</li>
             </ul>
           </section>
@@ -95,9 +96,9 @@ function RulesDialog({ onClose }: { onClose: () => void }) {
           <section className="bg-indigo-50 rounded-xl p-3">
             <h3 className="font-bold text-indigo-700 mb-1">コツ</h3>
             <ul className="list-disc list-inside space-y-1 text-indigo-600">
-              <li>他のプレイヤーの反応をよく観察しよう</li>
               <li>相手のワードをさりげなく言わせるように誘導しよう</li>
-              <li>自分のワードのヒントになりそうな話題は避けよう</li>
+              <li>特定の話題をふられたら要注意！自分のワードに関係しているかも</li>
+              <li>会話の流れから自分のワードを推理してチャレンジしよう</li>
             </ul>
           </section>
         </div>
